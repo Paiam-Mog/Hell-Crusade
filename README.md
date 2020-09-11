@@ -11,6 +11,6 @@ Some of the systems and features that I have worked on or implemented during my 
  * Enemy Manager System that handles spawning the enemies in each wave, keeping track on when the enemies die and when to transition from one wave to another
  * Bullet Manager System that handles spawning bullets (both player and enemy bullets) and assigns them their sprites and flight path as well as handles their death 
 
-A video of the trailer for the game featuring some gameplay can be found at this link here: 
- 
- 
+# Playing the game
+Download the Hell Crusade zip file, unzip the file and inside the Hell Crusade folder run the executable file. 
+Note: The server is no longer up so game boot up may take some time as it attempts to connect to the server. Login, Register, and Leaderboard are unavailable.
