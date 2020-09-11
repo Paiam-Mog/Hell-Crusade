@@ -1,0 +1,682 @@
+Enemy Manager System:
+
+Description:
+
+
+Coding Features and Strategies Utilized in this system:
+
+
+Code Snippets (2):
+
+EnemyManager.cs:
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class EnemyManager : MonoBehaviour
+{
+    #region Public/Inspector Variables
+    public GameObject Enemy_Prefab;
+
+    public struct EnemySpawnValues
+    {
+        public Vector3 spawnPoint;
+        public Vector3 targetPoint;
+        public int health;
+        public int collDmg;
+        public float shootMin;
+        public float shootMax;
+        public float moveMin;
+        public float moveMax;
+        public EnemyController.EnemyType enemType;
+    }
+
+    [System.Serializable]
+    public struct EnemyWaveValues
+    {
+        public int numEnemies;
+        public int minNumBlueEnem;
+        public int minNumRedEnem;
+    }
+
+    public Transform WaveBoundLeft;
+    public Transform WaveBoundRight;
+    #endregion
+
+    #region Private Variables
+    //Object pool of enemies
+    List<GameObject> EnemyPool = new List<GameObject>();
+    List<GameObject> CurrentWave = new List<GameObject>();
+    private int BossPartCounter = 3;
+    #endregion
+
+    #region Enumerators
+    #endregion
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        for (int i = 0; i < 1000; i++)
+        {
+            GameObject Enemy = Instantiate(Enemy_Prefab, Vector3.zero, Quaternion.identity);
+            Enemy.SetActive(false);
+            EnemyPool.Add(Enemy);
+        }
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
+
+    public void CreateWave(EnemyWaveValues waveObj)
+    {
+        if (GameManager.instance.GetPlayer().GetComponent<PlayerController>().IsHacksOn())
+        {
+            waveObj.numEnemies *= 10;
+            waveObj.minNumBlueEnem *= 10;
+            waveObj.minNumRedEnem *= 10;
+        }
+
+        if (waveObj.numEnemies == 0)
+        {
+            return;
+        }
+
+        float WaveDistance = Mathf.Abs(WaveBoundLeft.position.x - WaveBoundRight.position.x);
+        float EnemyWaveDist = WaveDistance / waveObj.numEnemies;
+
+        Vector3 spawnPoint = WaveBoundLeft.position + new Vector3(EnemyWaveDist / 2.0f, 0.0f, 0.0f);
+
+        List<int> selectedIndices = new List<int>();
+        List<EnemySpawnValues> enemiesToSpawn = new List<EnemySpawnValues>();        
+
+        for (int i = 0; i < waveObj.numEnemies; i++)
+        {
+            Vector3 targetPoint = spawnPoint + new Vector3(0.0f, -5.0f, 0.0f);
+            EnemySpawnValues enem = new EnemySpawnValues();
+            enem.spawnPoint = spawnPoint;
+            enem.targetPoint = targetPoint;
+            enemiesToSpawn.Add(enem);
+            spawnPoint += new Vector3(EnemyWaveDist, 0.0f, 0.0f);
+        }
+
+        for (int i = 0; i < waveObj.minNumBlueEnem; i++)
+        {
+            int index = RandomSelectNumberFromRange(waveObj.numEnemies, selectedIndices);
+            selectedIndices.Add(index);
+
+            EnemySpawnValues enem = enemiesToSpawn[index];
+            enem.collDmg = 1;
+            enem.enemType = EnemyController.EnemyType.BlueEnemy;
+            enem.health = 3;
+            enem.shootMin = 1.0f;
+            enem.shootMax = 3.0f;
+            enem.moveMin = 1.0f;
+            enem.moveMax = 3.0f;
+
+            enemiesToSpawn[index] = enem;
+        }
+
+        for (int i = 0; i < waveObj.minNumRedEnem; i++)
+        {
+            int index = RandomSelectNumberFromRange(waveObj.numEnemies, selectedIndices);
+            selectedIndices.Add(index);
+
+            EnemySpawnValues enem = enemiesToSpawn[index];
+            enem.collDmg = 1;
+            enem.enemType = EnemyController.EnemyType.RedEnemy;
+            enem.health = 2;
+            enem.shootMin = 1.0f;
+            enem.shootMax = 2.0f;
+            enem.moveMin = 1.0f;
+            enem.moveMax = 2.0f;
+
+            enemiesToSpawn[index] = enem;
+        }
+
+        for (int i = 0; i < waveObj.numEnemies; i++)
+        {
+            bool validIndex = true;
+            for(int j = 0; j < selectedIndices.Count; j++)
+            {
+                if(selectedIndices[j] == i)
+                {
+                    validIndex = false;
+                }
+            }
+
+            if(!validIndex)
+            {
+                continue;
+            }
+
+            EnemySpawnValues enem = enemiesToSpawn[i];
+            enem.collDmg = 1;
+            enem.enemType = EnemyController.EnemyType.TridentEnemy;
+            enem.health = 1;
+            enem.shootMin = 1.0f;
+            enem.shootMax = 1.0f;
+            enem.moveMin = 1.0f;
+            enem.moveMax = 1.0f;
+
+            enemiesToSpawn[i] = enem;
+        }
+
+        for(int i = 0; i < enemiesToSpawn.Count; i++)
+        {
+            SpawnEnemy(enemiesToSpawn[i]);
+        }
+    }
+
+    public void SpawnEnemy(EnemySpawnValues enemObj)
+    {
+        //If there are no more enemies in the pool, then dont spawn a new one
+        if (EnemyPool.Count == 0)
+        {
+            return;
+        }
+
+        //Grab the first bullet object from the pool and remove it
+        GameObject Enemy = EnemyPool[0];
+        EnemyPool.RemoveAt(0);
+
+        EnemyController enemCtrl = Enemy.GetComponent<EnemyController>();
+
+        //Set enemy values
+        Enemy.transform.position = enemObj.spawnPoint;
+        enemCtrl.SetHealth(enemObj.health);
+        enemCtrl.SetCollDamage(enemObj.collDmg);
+        if(!GameManager.instance.GetPlayer().GetComponent<PlayerController>().IsHacksOn())
+        {
+            enemCtrl.SetMoveTimerLimits(enemObj.moveMin, enemObj.moveMax);
+            enemCtrl.SetShootTimerLimits(enemObj.shootMin, enemObj.shootMax);
+        }        
+        enemCtrl.SetEnemyType(enemObj.enemType);
+        enemCtrl.SetDestroyCallback(ReturnEnemyToPool);
+
+        //Activate enemy object
+        enemCtrl.SetImmune(true);
+        enemCtrl.PauseEnemy(true);
+        StartCoroutine(MoveEnemiesToTarget(Enemy, enemObj.targetPoint, false));
+        enemCtrl.ResetTimers();
+        Enemy.SetActive(true);
+
+        CurrentWave.Add(Enemy);
+    }
+
+    public void ReturnEnemyToPool(GameObject Enemy)
+    {        
+        EnemyPool.Add(Enemy);
+        EnemyController enemCtrl = Enemy.GetComponent<EnemyController>();
+        enemCtrl.PauseEnemy(true);
+        enemCtrl.gameObject.SetActive(false);
+
+        if (Enemy.tag == "Boss")
+        {
+            BossPartCounter--;
+            GameManager.instance.AddPoints(5000);
+        }
+        else
+        {
+            EnemyController.EnemyType t = enemCtrl.mEnemyType;
+            if (t == EnemyController.EnemyType.TridentEnemy)
+            {
+                GameManager.instance.AddPoints(100);
+            }
+            else if (t == EnemyController.EnemyType.RedEnemy)
+            {
+                GameManager.instance.AddPoints(250);
+            }
+            else if (t == EnemyController.EnemyType.BlueEnemy)
+            {
+                GameManager.instance.AddPoints(500);
+            }
+
+            CurrentWave.Remove(Enemy);
+
+            if (CurrentWave.Count == 0)
+            {
+                GameManager.instance.SpawnNextWave();
+            }
+        }
+
+        if (BossPartCounter == 1)
+        {
+            GameManager.instance.SetBossBody();
+        }
+        else if (BossPartCounter == 0)
+        {
+            GameManager.instance.EndGame(true);
+            GameManager.instance.AddPoints(10000);
+        }
+    }
+
+    //Used to randomly select an available index from a list, while ingoring previously selected indexes in a list
+    private int RandomSelectNumberFromRange(int count, List<int> unselectableIndexes)
+    {
+        if(unselectableIndexes.Count >= count)
+        {
+            return -1;
+        }
+
+        int index = (int)Random.Range(0.0f, (float)count);
+
+        bool validIndex = false;
+
+        while(!validIndex)
+        {
+            validIndex = true;
+            for(int i = 0; i < unselectableIndexes.Count; i++)
+            {
+                if(index == unselectableIndexes[i])
+                {
+                    index = (int)Random.Range(0.0f, (float)count);
+                    validIndex = false;
+                }
+            }
+        }
+
+        return index;
+    }
+    public void MoveEnemiesIntoGameView(GameObject enemy, Vector3 target, bool ImmuneAfter)
+    {
+        StartCoroutine(MoveEnemiesToTarget(enemy, target, ImmuneAfter));
+    }
+
+    public void PauseAllEnemy()
+    {
+        for(int i = 0; i < EnemyPool.Count; i++)
+        {
+            EnemyPool[i].GetComponent<EnemyController>().PauseEnemy(true);
+        }
+        for(int i = 0; i < CurrentWave.Count; i++)
+        {
+            CurrentWave[i].GetComponent<EnemyController>().PauseEnemy(true);
+        }
+    }
+
+    IEnumerator MoveEnemiesToTarget(GameObject enemy, Vector3 target, bool ImmuneAfter)
+    {
+        float moveDist = Vector3.Distance(enemy.transform.position, target);
+        float startTime = Time.time;
+        Vector3 startSpot = enemy.transform.position;
+        
+        while(Time.time - startTime <= 3.0f)
+        {
+            enemy.transform.position = Vector3.Lerp(startSpot, target, (Time.time - startTime) / 3.0f);
+
+            yield return 1;
+        }
+
+        enemy.GetComponent<EnemyController>().SetImmune(ImmuneAfter);
+        enemy.GetComponent<EnemyController>().PauseEnemy(false);
+    }
+
+    public void HacksOn()
+    {
+        for(int i = 0; i < EnemyPool.Count; i++)
+        {
+            EnemyController enemCtrl = EnemyPool[i].GetComponent<EnemyController>();
+            enemCtrl.SetMoveTimerLimits(0.01f, 0.03f);
+            enemCtrl.SetShootTimerLimits(0.01f, 0.03f);
+            enemCtrl.SetHealth(10);
+        }
+        for (int i = 0; i < CurrentWave.Count; i++)
+        {
+            EnemyController enemCtrl = CurrentWave[i].GetComponent<EnemyController>();
+            enemCtrl.SetMoveTimerLimits(0.01f, 0.03f);
+            enemCtrl.SetShootTimerLimits(0.01f, 0.03f);
+            enemCtrl.SetHealth(10);
+        }
+    }
+}
+
+
+EnemyController.cs:
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class EnemyController : MonoBehaviour
+{
+    #region Public/Inspector Variables
+    public float moveTimerMin = 1.0f;
+    public float moveTimerMax = 1.0f;
+    public float shootTimerMin = 1.0f;
+    public float shootTimerMax = 1.0f;
+    public Transform BulletSpawnSpot;
+    public EnemyType mEnemyType = EnemyType.BlueEnemy;
+    public delegate void DestroyDelegate(GameObject obj);
+    public Color dmgColor;
+    public Color deathColor;
+    #endregion
+
+    #region Private Variables
+    int health = 10;
+    int collDamage = 1;
+    float moveTimer = 1.0f;
+    float shootTimer = 1.0f;
+    float moveDuration = 0.3f;
+    float Move_Speed = 5.0f;
+    Vector3 Forward_Vector;
+    //EnemyType mEnemyType = EnemyType.BlueEnemy;
+    Vector3 mDir;
+
+    DestroyDelegate destroyCallback;
+    bool pauseUpdate = false;
+    Color originalColor;
+    bool immune = false;
+    bool dead = false;
+    #endregion
+
+    #region Enumerators
+    public enum EnemyType
+    {
+        BlueEnemy,
+        RedEnemy,
+        TridentEnemy
+    }
+    #endregion
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        ResetMoveTimer();
+        ResetShootTimer();
+
+        Vector3 mDir = SetRandomDirection();
+        originalColor = GetComponent<SpriteRenderer>().color;
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if (pauseUpdate)
+        {
+            return;
+        }
+
+        moveTimer -= Time.deltaTime;
+        shootTimer -= Time.deltaTime;
+
+        if (moveTimer <= 0.0f)
+        {
+            mDir = SetRandomDirection();
+            moveDuration = 0.3f;
+            ResetMoveTimer();
+        }
+
+        if(shootTimer <= 0.0f)
+        {
+            EnemyShoot();
+            ResetShootTimer();
+        }
+
+        if (moveDuration > 0.0f)
+        {
+            moveDuration -= Time.deltaTime;
+            transform.position += mDir * Move_Speed * Time.deltaTime;
+        }
+        else
+        {
+            mDir = Vector3.zero;
+        }
+    }
+
+    public void SetHealth(int h)
+    {
+        health = h;
+    }
+
+    public void SetCollDamage(int cDmg)
+    {
+        collDamage = cDmg;
+    }
+
+    public int GetCollisionDamage()
+    {
+        return collDamage;
+    }
+
+    public void SetMoveTimerLimits(float min, float max)
+    {
+        moveTimerMin = min;
+        moveTimerMax = max;
+    }
+
+    public void SetShootTimerLimits(float min, float max)
+    {
+        shootTimerMin = min;
+        shootTimerMax = max;
+    }
+
+    public void SetEnemyType(EnemyType enemType)
+    {
+        mEnemyType = enemType;
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(immune)
+        {
+            return;
+        }
+
+        if (collision.gameObject.tag == "PlayerBullet")
+        {
+            BulletController bullCtrl = collision.gameObject.GetComponent<BulletController>();
+            bullCtrl.DestoryBullet();
+            TakeDmg(bullCtrl.GetBulletDamage());
+        }
+    }
+
+    #region Helper Functions
+    private void ResetMoveTimer()
+    {
+        moveTimer = Random.Range(moveTimerMin, moveTimerMax);
+    }
+
+    private void ResetShootTimer()
+    {
+        shootTimer = Random.Range(shootTimerMin, shootTimerMax);
+    }
+
+    private void EnemyShoot()
+    {
+        if(mEnemyType == EnemyType.BlueEnemy)
+        {
+            Vector3 ShootDir = Vector3.down;
+            
+            for(int i = -1; i <= 1; i++)
+            {
+                Vector3 ShootTarget = Quaternion.AngleAxis(30.0f * i, Vector3.forward) * ShootDir * 10.0f + transform.position;
+                GameManager.instance.CreateBullet(BulletSpawnSpot.position, ShootTarget, BulletManager.BulletType.EnemyBlueFlame, 1);
+            }
+        }
+        else if(mEnemyType == EnemyType.RedEnemy)
+        {
+            GameObject player = GameManager.instance.GetPlayer();
+            if (player != null)
+            {
+                GameManager.instance.CreateBullet(BulletSpawnSpot.position, player.transform.position, BulletManager.BulletType.EnemyRedFlame, 1);
+            }
+        }
+        else if(mEnemyType == EnemyType.TridentEnemy)
+        {
+            Vector3 ShootTarget = Vector3.down * 10.0f + transform.position;
+            GameManager.instance.CreateBullet(BulletSpawnSpot.position, ShootTarget, BulletManager.BulletType.EnemyTrident, 1);
+        }
+    }
+
+    private Vector3 SetRandomDirection()
+    {
+        float tooClose = 3.0f;
+
+        int randDir = (int)Random.Range(1.0f, 5.0f);
+
+        int bannedDir = 0;
+
+        float dx1 = 0.0f;
+        float dx2 = 0.0f;
+        float dy1 = 0.0f;
+        float dy2 = 0.0f;
+
+        Vector3 max = GameManager.instance.GetGameBoundMaxPos();
+        Vector3 min = GameManager.instance.GetGameBoundMinPos();
+
+        float cXMax = max.x;
+        float cXMin = min.x;
+        float cYMax = max.y;
+        float cYMin = min.y;
+
+        dx1 = Mathf.Abs(transform.position.x - cXMax);
+        dx2 = Mathf.Abs(transform.position.x - cXMin);
+        dy1 = Mathf.Abs(transform.position.y - cYMax);
+        dy2 = Mathf.Abs(transform.position.y - cYMin);
+
+        float xMin = Mathf.Min(dx1, dx2);
+        float yMin = Mathf.Min(dy1, dy2);
+
+        if(xMin < yMin)
+        {
+            if(dx1 < dx2)
+            {
+                if(dx1 < tooClose)
+                {
+                    bannedDir = 3;
+                }                
+            }
+            else
+            {
+                if (dx2 < tooClose)
+                {
+                    bannedDir = 4;
+                }
+            }
+        }
+        else
+        {
+            if (dy1 < dy2)
+            {
+                if (dy1 < tooClose)
+                {
+                    bannedDir = 1;
+                }
+            }
+            else
+            {
+                if (dy2 < tooClose)
+                {
+                    bannedDir = 2;
+                }
+            }
+        }
+
+        while(randDir == bannedDir)
+        {
+            randDir = (int)Random.Range(1.0f, 5.0f);
+        }
+
+        if (randDir == 1)
+        {
+            return Vector3.up;
+        }
+        else if (randDir == 2)
+        {
+            return Vector3.down;
+        }
+        else if (randDir == 3)
+        {
+            return Vector3.right;
+        }
+        else if (randDir == 4)
+        {
+            return Vector3.left;
+        }
+
+        return Vector3.zero;
+    }
+
+    private void TakeDmg(int dmg)
+    {
+        if(dead)
+        {
+            return;
+        }
+
+        health -= dmg;
+
+        if(health <= 0)
+        {
+            dead = true;
+            StartCoroutine("VisualizeDeath");
+        }
+        else
+        {
+            StartCoroutine("VisualizeDamage");
+        }
+    }
+
+    IEnumerator VisualizeDamage()
+    {
+        
+        for (float i = 0.0f; i < 1.0f; i += Time.deltaTime / 0.5f)
+        {
+            Color newColor = new Color(dmgColor.r * i, dmgColor.g * i, dmgColor.b * i, 1.0f);
+            GetComponent<SpriteRenderer>().color = newColor;
+            yield return null;
+        }
+
+        for (float i = 0.0f; i < 1.0f; i += Time.deltaTime / 0.5f)
+        {
+            Color newColor = new Color(originalColor.r * i, originalColor.g * i, originalColor.b * i, 1.0f);
+            GetComponent<SpriteRenderer>().color = newColor;
+            yield return null;
+        }
+    }
+
+    IEnumerator VisualizeDeath()
+    {
+        GetComponent<SpriteRenderer>().color = deathColor;
+        PauseEnemy(true);
+        yield return new WaitForSeconds(0.5f);
+
+        for (float i = 1.0f; i > 0.0f; i -= Time.deltaTime / 0.5f)
+        {
+            Color newColor = new Color(deathColor.r, deathColor.g, deathColor.b, i);
+            GetComponent<SpriteRenderer>().color = newColor;
+            yield return null;
+        }
+
+        DestoryEnemy();
+    }
+    #endregion
+
+    public void SetDestroyCallback(DestroyDelegate dD)
+    {
+        destroyCallback = dD;
+    }
+
+    public void DestoryEnemy()
+    {
+        destroyCallback(transform.gameObject);
+    }
+
+    public void PauseEnemy(bool pause)
+    {
+        pauseUpdate = pause;
+    }
+
+    public void ResetTimers()
+    {
+        ResetMoveTimer();
+        ResetShootTimer();
+    }
+
+    public void SetImmune(bool i)
+    {
+        immune = i;
+    }
+}
