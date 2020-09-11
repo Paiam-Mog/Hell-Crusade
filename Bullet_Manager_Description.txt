@@ -1,9 +1,13 @@
 Bullet Manager System:
 
 Description:
-This system was built to manage all the creation, assignment, and removal of bullets throughout the game. The use of the Bullet Manager allowed for the use of pool allocation of bullet objects to improve performance. When another system needs to create a bullet, they ask for the Bullet Manager to spawn a Bullet Prefab and provide starting values to determine the Bullet starting position, flight path, bullet type (used to assign the sprite), and damage value. Each Bullet Prefab contains a Bullet Controller that handles the movement, collision, and "destruction" of the bullet. 
+This system was built to manage all the creation, assignment, and removal of bullets throughout the game. The use of the Bullet Manager allowed for the use of pool allocation of
+bullet objects to improve performance. When another system needs to create a bullet, they ask for the Bullet Manager to spawn a Bullet Prefab and provide starting values to
+determine the Bullet starting position, flight path, bullet type (used to assign the sprite), and damage value. Each Bullet Prefab contains a Bullet Controller that handles the
+movement, collision, and "destruction" of the bullet. 
 
-By using these two systems together, the behavior of the bullets were generic and allowed for them to share use across multiple entities in the game such as enemies, the boss and the player.
+By using these two systems together, the behavior of the bullets were generic and allowed for them to share use across multiple entities in the game such as enemies, the boss
+and the player.
 
 
 Coding Features and Strategies Utilized in this system:
