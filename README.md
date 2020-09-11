@@ -14,3 +14,5 @@ Some of the systems and features that I have worked on or implemented during my 
 # Playing the game
 Download the Hell Crusade zip file, unzip the file and inside the Hell Crusade folder run the executable file. 
 Note: The server is no longer up so game boot up may take some time as it attempts to connect to the server. Login, Register, and Leaderboard are unavailable.
+
+The game also features a "Hacks On" mode (toggled by pressing the 'h' key) where the player cannot be hurt, shooting cooldown is extremely reduced, 10 times as many enemies spawn, and the boss has much more health. This mode is mostly for fun and may cause small issues in the game such as frame rate drops and delays in bullet spawning.
