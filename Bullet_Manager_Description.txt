@@ -1,0 +1,231 @@
+Bullet Manager System:
+
+Description:
+
+
+Coding Features and Strategies Utilized in this system:
+
+
+
+Code Snippets (2):
+
+BulletManager.cs:
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class BulletManager : MonoBehaviour
+{
+    #region Public/Inspector Variables
+    public GameObject bulletPrefab;
+
+    [System.Serializable]
+    public struct BulletSprite
+    {
+        public string BulletName;
+        public Sprite sprite;
+    }
+    public List<BulletSprite> BulletSprites = new List<BulletSprite>();
+    #endregion
+
+    #region Private Variables
+    //Object pool of bullets
+    List<GameObject> BulletPool = new List<GameObject>();
+
+    public Dictionary<string, Sprite> mBulletSprites = new Dictionary<string, Sprite>();
+    #endregion
+
+    #region Enumerators
+    public enum BulletType
+    {
+        EnemyRedFlame,
+        EnemyBlueFlame,
+        EnemyTrident,
+        PlayerArrow
+    }
+    #endregion
+    // Start is called before the first frame update
+    void Start()
+    {
+        for(int i = 0; i < 1000; i++)
+        {
+            GameObject Bullet = Instantiate(bulletPrefab, Vector3.zero, Quaternion.identity);
+            BulletPool.Add(Bullet);
+        }
+
+        for(int i = 0; i < BulletSprites.Count; i++)
+        {
+            if(!mBulletSprites.ContainsKey(BulletSprites[i].BulletName))
+            {
+                mBulletSprites.Add(BulletSprites[i].BulletName, BulletSprites[i].sprite);
+            }
+            else
+            {
+                mBulletSprites[BulletSprites[i].BulletName] = BulletSprites[i].sprite;
+            }
+        }
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
+
+    public void SpawnBullet(Vector3 spawnPoint, Vector3 targetPoint, BulletType bullType, int bulletDmg)
+    {
+        //If there are no more bullets in the pool, then dont spawn a new one
+        if(BulletPool.Count == 0)
+        {
+            return;
+        }
+
+        //Grab the first bullet object from the pool and remove it
+        GameObject Bullet = BulletPool[0];
+        BulletPool.RemoveAt(0);
+
+        if(bullType != BulletType.PlayerArrow)
+        {
+            Bullet.tag = "EnemyBullet";
+        }
+        else
+        {
+            Bullet.tag = "PlayerBullet";
+        }
+
+        //Get the bullet controller and assign the proper values
+        BulletController bullCtrl = Bullet.GetComponent<BulletController>();
+        Bullet.transform.position = spawnPoint;
+        bullCtrl.SetTargetPosition(targetPoint);
+        bullCtrl.SetBulletDamage(bulletDmg);
+        bullCtrl.SetDestroyCallback(ReturnBulletToPool);
+        bullCtrl.PauseBullet(false);
+        bullCtrl.ReInitalizeBullet();
+
+        AssignBulletType(Bullet, bullType);
+        Bullet.SetActive(true);
+    }
+
+    private void AssignBulletType(GameObject Bullet, BulletType bullType)
+    {
+        if(bullType == BulletType.EnemyBlueFlame)
+        {
+            Bullet.GetComponent<SpriteRenderer>().sprite = mBulletSprites["BlueFlame"];
+        }
+        else if (bullType == BulletType.EnemyRedFlame)
+        {
+            Bullet.GetComponent<SpriteRenderer>().sprite = mBulletSprites["RedFlame"];
+        }
+        else if(bullType == BulletType.EnemyTrident)
+        {
+            Bullet.GetComponent<SpriteRenderer>().sprite = mBulletSprites["Trident"];
+        }
+        else if (bullType == BulletType.PlayerArrow)
+        {
+            Bullet.GetComponent<SpriteRenderer>().sprite = mBulletSprites["PlayerArrow"];
+        }
+    }
+
+    public void ReturnBulletToPool(GameObject Bullet)
+    {
+        BulletPool.Add(Bullet);
+        BulletController bullCtrl = Bullet.GetComponent<BulletController>();
+        bullCtrl.PauseBullet(true);
+        bullCtrl.gameObject.SetActive(false);
+    }
+}
+
+
+BulletController.cs:
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class BulletController : MonoBehaviour
+{
+    #region Public/Inspector Variables
+    public float Bullet_Speed = 1.0f;
+    public delegate void DestroyDelegate(GameObject obj);
+    #endregion
+
+    #region Private Variables
+    int damage;
+    Vector3 TargetPos;
+    Vector3 MoveForward;
+    float DeathTimer;
+    DestroyDelegate destoryCallback;
+    bool pauseUpdate = false;
+    #endregion
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        //Set the forward movement vector
+        MoveForward = TargetPos - transform.position;
+        MoveForward.z = 0.0f;
+        MoveForward.Normalize();
+        //Initialize the death timer
+        DeathTimer = 2.0f;
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if(pauseUpdate)
+        {
+            return;
+        }
+
+        transform.position += MoveForward * Bullet_Speed * Time.deltaTime;
+
+        DeathTimer -= Time.deltaTime;
+        if(DeathTimer <= 0.0f)
+        {
+            DestoryBullet();
+        }
+    }
+
+    public void SetTargetPosition(Vector3 pos)
+    {
+        //Sets the target position
+        TargetPos = pos;
+    }
+
+    public void SetBulletDamage(int dmg)
+    {
+        damage = dmg;
+    }
+
+    public int GetBulletDamage()
+    {
+        return damage;
+    }
+
+    public void SetDestroyCallback(DestroyDelegate dD)
+    {
+        destoryCallback = dD;
+    }
+
+    public void DestoryBullet()
+    {
+        destoryCallback(transform.gameObject);
+    }
+
+    public void PauseBullet(bool pause)
+    {
+        pauseUpdate = pause;
+    }
+
+    public void ResetTimers()
+    {
+        DeathTimer = 2.0f;
+    }
+
+    public void ReInitalizeBullet()
+    {
+        MoveForward = TargetPos - transform.position;
+        MoveForward.z = 0.0f;
+        MoveForward.Normalize();
+        ResetTimers();
+    }
+}
