@@ -11,7 +11,8 @@ and the player.
 
 
 Coding Features and Strategies Utilized in this system:
- - The use of memory pools to improve game performance and reduce the amount of runtime allocation
+ - The use of memory pools to improve game performance and reduce the amount of runtime allocation/deallocation
+ - Using generic behavior of objects to allow for multiple systems to interact with each other in similar ways
  
 
 Code Snippets (2):
